@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
+
+::-webkit-scrollbar {
+    width: 12px;
+}
+ 
+::-webkit-scrollbar-track {
+    -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3); 
+    border-radius: 10px;
+}
+ 
+::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.5);
+    background-color: #00B4D8; 
+}
+
+body {
+    font-family: 'Quicksand', sans-serif;
+}
+
+.scroll-navbar {
+    height: 560px;
+    overflow-y: auto;
+}
+
+.scroll-content {
+    overflow-y: auto;
+
+    .list-content {
+        li:nth-child(odd) {
+            display: flex;
+            justify-content: flex-start;
+            .items-list {
+                display: flex;
+
+                .bg-chat { 
+                    background-color: #B3E7F8;
+                }
+
+                img {
+                    margin-right: 1rem;
+                }
+
+                p {
+                    margin-top: 5px;
+                }
+            }
+        }
+        li:nth-child(even) {
+            display: flex;
+            justify-content: flex-end;
+            .items-list {
+                display: flex;
+                flex-direction: row-reverse;
+
+                .bg-chat { 
+                    background-color: #00B4D8;
+                }
+
+                img {
+                    margin-left: 1rem;
+                }
+
+                p {
+                    text-align: end;
+                    margin-top: 5px;
+                }
+            }
+        }
+    }
+}
