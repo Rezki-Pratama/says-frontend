@@ -1,16 +1,17 @@
-import React, { Fragment, useState, useEffect } from 'react'
+import React, { Fragment, useState, useEffect, useRef } from 'react'
 import { FaSearch } from 'react-icons/fa';
 import { AiOutlineUserAdd } from 'react-icons/ai';
 import { BiMessageAdd } from 'react-icons/bi';
 import queryString from 'query-string'
 import axios from 'axios'
-import io from 'socket.io-client';
+import * as io from 'socket.io-client';
 
 const END_POINT = 'http://127.0.0.1:5000/';
 
 const Home = ({location}) => {
 
-    let socket;
+    //useRef for use socket io global
+    const socketRef = useRef()
 
     const [allFriend, setFriend] = useState({
         allFriend: []
@@ -34,9 +35,9 @@ const Home = ({location}) => {
 
     const [message, setMessage] = useState("")
 
-    const [chat, setChat] = useState({
-        chat: []
-    })
+    const [chat, setChat] = useState([])
+
+    const [typing, setTyping] = useState('')
 
     const handleFind = () => {
         if(findFriend) {
@@ -95,39 +96,68 @@ const Home = ({location}) => {
         setMessage(event.target.value)
     }
 
+    const handleTyping = event => {
+        // const socket = io(END_POINT,{transports: ['websocket']})
+        socketRef.current.emit('typing', {
+            sender: sender,
+            type: true
+        })
+        console.log(event)
+    }
+
     console.log(location.search)
     useEffect(() => {
+        // const socket = io(END_POINT,{transports: ['websocket']})
+        socketRef.current = io(END_POINT,{transports: ['websocket']})
         const {name} = queryString.parse(location.search)
-        const socket = io(END_POINT,{transports: ['websocket']})
         setSender(name)
         getFriend()
-        // socket.on("FromAPI", data => {
-        //   setResponse(data)
-        //   console.log(data)
-        // });
-        console.log(socket)
-        socket.emit('user_connected', name)
-        socket.on('new_message', data => {
+        console.log(socketRef.current)
+        socketRef.current.emit('user_connected', name)
+        socketRef.current.on('new_message', data => {
+            setChat((chat) => [...chat, data])
             console.log(data)
         })
+        // socket.on('typing', data => {
+        //     if(data.type === true) {
+        //         console.log('sedang mengetik', data.sender)
+        //         setInterval(() => {
+        //           setTyping('')  
+        //         }, 1000);
+        //         setTyping(data.sender)
+        //     }
+        // })
+
+        console.log(chat)
 
         //eslint-disable-next-line
 
-    },[END_POINT, location.search, alreadyFriend])
+        return () => {
+            socketRef.current.disconnect()
+        }
 
+    },[END_POINT, location.search, alreadyFriend,chat])
+    
     const sendMessage = () => {
         // event.preventDefault();
-        const socket = io(END_POINT,{transports: ['websocket']})
+        // const socket = io(END_POINT,{transports: ['websocket']})
         console.log(sender)
         console.log(receiver)
-        socket.emit('send_message',{
+        socketRef.current.emit('send_message',{
             uuid: '13d55e50-1a75-46c8-9617-64166ff00720',
             sender: sender,
             receiver: receiver,
             message: message
         })
+        setChat((chat) => [...chat, {
+            uuid: '13d55e50-1a75-46c8-9617-64166ff00720',
+            sender: sender,
+            receiver: receiver,
+            message: message
+        }])
     }
-    console.log(socket)
+
+    console.log(chat.length)
     return(
         <Fragment>
             <div className="w-full h-screen container mx-auto flex justify-between p-6">
@@ -135,7 +165,7 @@ const Home = ({location}) => {
                     <div className="w-full">
                         <div className="w-full flex flex-col justify-center items-center">
                             <div className="flex justify-between w-full items-center">
-                                <h1 className="font-bold text-primary text-4xl">Says</h1>
+                                <h1 className="font-bold text-primary text-4xl">{typing}</h1>
                                 <button className="inline-block bg-primary rounded-lg py-1 px-2 text-white font-bold focus:outline-none">LOGOUT</button>
                             </div>
                             <div className="w-full flex flex-col justify-center items-center mt-8">
@@ -189,17 +219,17 @@ const Home = ({location}) => {
 
                                 {
                                     !findFriend ?
-                                    allFriend.allFriend.map(friend =>
-                                    
-                                    <button key={friend.id} onClick={() => onSelectedUser(friend.user.name)} className="flex w-full items-center my-2 focus:outline-none">
-                                        <img className="rounded-full object-cover w-12 h-12 mr-2" src="https://placeimg.com/640/480/any" alt=""/>
-                                        <div className="flex flex-col items-start">
-                                            <h1 className="font-bold">{friend.user.name}</h1>
-                                            <h2 className="">Hi, How are you marcus...</h2>
-                                        </div>
-                                    </button>
-
-                                    )
+                                    allFriend.allFriend.map(friend =>{
+                                        return (
+                                            <button key={friend.id} onClick={() => onSelectedUser(friend.user.name)} className="flex w-full items-center my-2 focus:outline-none">
+                                                <img className="rounded-full object-cover w-12 h-12 mr-2" src="https://placeimg.com/640/480/any" alt=""/>
+                                                <div className="flex flex-col items-start">
+                                                    <h1 className="font-bold">{friend.user.name}</h1>
+                                                    <h2 className="">Hi, How are you marcus...</h2>
+                                                </div>
+                                            </button>
+                                        )
+                                    })
                                     :
                                     
                                     searchData.length ? 
@@ -207,19 +237,20 @@ const Home = ({location}) => {
                                         Find your friend
                                     </div> 
                                     : 
-                                    searchData.searchData.map(friend =>
-                                    
-                                    <button key={friend.id} onClick={() => onSelectedUser(friend.user.name)} className="flex w-full justify-between items-center my-2 focus:outline-none">
-                                        <div className="flex">
-                                            <img className="rounded-full object-cover w-12 h-12 mr-2" src="https://placeimg.com/640/480/any" alt=""/>
-                                            <div className="flex flex-col items-start">
-                                                <h1 className="font-bold">{friend.name}</h1>
-                                                <h2 className="">Hi, How are you marcus...</h2>
-                                            </div>
-                                        </div>
-                                        <BiMessageAdd className="text-xl"/>
-                                    </button>
-                                    ) 
+                                    searchData.searchData.map(friend => {
+                                        return (
+                                            <button key={friend.id} onClick={() => onSelectedUser(friend.user.name)} className="flex w-full justify-between items-center my-2 focus:outline-none">
+                                                <div className="flex">
+                                                    <img className="rounded-full object-cover w-12 h-12 mr-2" src="https://placeimg.com/640/480/any" alt=""/>
+                                                    <div className="flex flex-col items-start">
+                                                        <h1 className="font-bold">{friend.name}</h1>
+                                                        <h2 className="">Hi, How are you marcus...</h2>
+                                                    </div>
+                                                </div>
+                                                <BiMessageAdd className="text-xl"/>
+                                            </button>
+                                        )
+                                    }) 
                                     
                                 }
 
@@ -232,89 +263,33 @@ const Home = ({location}) => {
                 <div className="w-7/12 h-full bg-white rounded-xl relative">
                     <div className="absolute bottom-0 w-full h-24 p-4">
                         <div className="bg-lightsecondary w-full h-full rounded-md flex justify-between items-center">
-                            <input onChange={handleMessage} className="w-9/12 px-2 h-8 mx-2 my-3 rounded-md" type="text"/>
+                            <input onChange={handleMessage} onKeyPress={handleTyping} className="w-9/12 px-2 h-8 mx-2 my-3 rounded-md" type="text"/>
                             <button onClick={sendMessage} className="w-2/12 h-8 bg-primary rounded-md text-white font-bold focus:outline-none mx-2 my-3">Send</button>
                         </div>
                     </div>
                     <div className="w-full h-full rounded-xl p-8 scroll-content">
                         <ul className="flex flex-col w-full list-content">
-                            <li className="flex py-4 items-center w-full">
-                                <div className="items-list">
-                                    <img className="rounded-full object-cover w-12 h-12" src="https://placeimg.com/640/480/any" alt=""/>
-                                    <div className="flex flex-col">
-                                        <div className="flex-wrap rounded-md py-1 px-2 bg-chat">
-                                            <h1 className="text-sm">Hello</h1>
-                                        </div>
-                                        <p className="text-xs">07.00</p>
-                                    </div>
-                                </div>
-                            </li>
-                            <li className="flex py-4 items-center w-full">
-                                <div className="items-list">
-                                    <img className="rounded-full object-cover w-12 h-12" src="https://placeimg.com/640/480/any" alt=""/>
-                                    <div className="flex flex-col">
-                                        <div className="flex-wrap rounded-md py-1 px-2 bg-chat">
-                                            <h1 className="text-sm">Hey</h1>
-                                        </div>
-                                        <p className="text-xs">07.01</p>
-                                    </div>
-                                </div>
-                            </li>
-                            <li className="flex py-4 items-center w-full">
-                                <div className="items-list">
-                                    <img className="rounded-full object-cover w-12 h-12" src="https://placeimg.com/640/480/any" alt=""/>
-                                    <div className="flex flex-col">
-                                        <div className="flex-wrap rounded-md py-1 px-2 bg-chat">
-                                            <h1 className="text-sm">Im Alicia, can we be a friends ?</h1>
-                                        </div>
-                                        <p className="text-xs">07.02</p>
-                                    </div>
-                                </div>
-                            </li>
-                            <li className="flex py-4 items-center w-full">
-                                <div className="items-list">
-                                    <img className="rounded-full object-cover w-12 h-12" src="https://placeimg.com/640/480/any" alt=""/>
-                                    <div className="flex flex-col">
-                                        <div className="flex-wrap rounded-md py-1 px-2 bg-chat">
-                                            <h1 className="text-sm">Sure why not, nice to meet you Alicia</h1>
-                                        </div>
-                                        <p className="text-xs">07.03</p>
-                                    </div>
-                                </div>
-                            </li>
-                            <li className="flex py-4 items-center w-full">
-                                <div className="items-list">
-                                    <img className="rounded-full object-cover w-12 h-12" src="https://placeimg.com/640/480/any" alt=""/>
-                                    <div className="flex flex-col">
-                                        <div className="flex-wrap rounded-md py-1 px-2 bg-chat">
-                                            <h1 className="text-sm">Where you from Marcus ?</h1>
-                                        </div>
-                                        <p className="text-xs">07.04</p>
-                                    </div>
-                                </div>
-                            </li>
-                            <li className="flex py-4 items-center w-full">
-                                <div className="items-list">
-                                    <img className="rounded-full object-cover w-12 h-12" src="https://placeimg.com/640/480/any" alt=""/>
-                                    <div className="flex flex-col">
-                                        <div className="flex-wrap rounded-md py-1 px-2 bg-chat">
-                                            <h1 className="text-sm">Im from Manchester, And you ?</h1>
-                                        </div>
-                                        <p className="text-xs">07.05</p>
-                                    </div>
-                                </div>
-                            </li>
-                            <li className="flex py-4 items-center w-full">
-                                <div className="items-list">
-                                    <img className="rounded-full object-cover w-12 h-12" src="https://placeimg.com/640/480/any" alt=""/>
-                                    <div className="flex flex-col">
-                                        <div className="flex-wrap rounded-md py-1 px-2 bg-chat">
-                                            <h1 className="text-sm">Im From london</h1>
-                                        </div>
-                                        <p className="text-xs">07.06</p>
-                                    </div>
-                                </div>
-                            </li>
+                           
+                            {chat.length ?
+                                chat.map(data => {
+                                    return (
+                                        <li className="flex py-4 items-center w-full">
+                                            <div className="items-list">
+                                                <img className="rounded-full object-cover w-12 h-12" src="https://placeimg.com/640/480/any" alt=""/>
+                                                <div className="flex flex-col">
+                                                    <div className="flex-wrap rounded-md py-1 px-2 bg-chat">
+                                                        <h1 className="text-sm">{data.message}</h1>
+                                                    </div>
+                                                    <p className="text-xs">07.06</p>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    )
+                                })
+                                :
+                                <div></div>   
+                            }
+
                         </ul>
                     </div>
                 </div>
