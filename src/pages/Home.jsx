@@ -1,14 +1,18 @@
-import React, { Fragment, useState, useEffect, useRef } from 'react'
+import React, { Fragment, useState, useEffect, useRef, useContext } from 'react'
 import { FaSearch } from 'react-icons/fa';
 import { AiOutlineUserAdd } from 'react-icons/ai';
 import { BiMessageAdd } from 'react-icons/bi';
 import queryString from 'query-string'
 import axios from 'axios'
 import * as io from 'socket.io-client';
+import { AuthContext } from '../App';
+import { Redirect } from 'react-router-dom'
 
 const END_POINT = 'http://127.0.0.1:5000/';
 
 const Home = ({location}) => {
+
+    const { state } = useContext(AuthContext)
 
     //useRef for use socket io global
     const socketRef = useRef()
@@ -29,9 +33,9 @@ const Home = ({location}) => {
         searchData: []
     })
 
-    const [receiver, setReceiver] = useState("")
-
     const [sender, setSender] = useState("")
+    
+    const [receiver, setReceiver] = useState("")
 
     const [message, setMessage] = useState("")
 
@@ -102,18 +106,18 @@ const Home = ({location}) => {
             sender: sender,
             type: true
         })
-        console.log(event)
     }
 
     console.log(location.search)
     useEffect(() => {
         // const socket = io(END_POINT,{transports: ['websocket']})
         socketRef.current = io(END_POINT,{transports: ['websocket']})
-        const {name} = queryString.parse(location.search)
-        setSender(name)
+        // const {name} = queryString.parse(location.search)
+        setSender(state.username)
+        console.log(state.username)
         getFriend()
         console.log(socketRef.current)
-        socketRef.current.emit('user_connected', name)
+        socketRef.current.emit('user_connected', state.username)
         socketRef.current.on('new_message', data => {
             setChat((chat) => [...chat, data])
             console.log(data)
@@ -136,7 +140,7 @@ const Home = ({location}) => {
             socketRef.current.disconnect()
         }
 
-    },[END_POINT, location.search, alreadyFriend,chat])
+    },[END_POINT, location.search, alreadyFriend,chat, state])
     
     const sendMessage = () => {
         // event.preventDefault();
@@ -155,9 +159,15 @@ const Home = ({location}) => {
             receiver: receiver,
             message: message
         }])
+        setMessage('')
     }
 
     console.log(chat.length)
+
+    if(!state.isAuthenticated) {
+        return <Redirect to="/" />
+    }
+
     return(
         <Fragment>
             <div className="w-full h-screen container mx-auto flex justify-between p-6">
@@ -263,7 +273,7 @@ const Home = ({location}) => {
                 <div className="w-7/12 h-full bg-white rounded-xl relative">
                     <div className="absolute bottom-0 w-full h-24 p-4">
                         <div className="bg-lightsecondary w-full h-full rounded-md flex justify-between items-center">
-                            <input onChange={handleMessage} onKeyPress={handleTyping} className="w-9/12 px-2 h-8 mx-2 my-3 rounded-md" type="text"/>
+                            <input onChange={handleMessage} value={message} onKeyPress={handleTyping} className="w-9/12 px-2 h-8 mx-2 my-3 rounded-md" type="text"/>
                             <button onClick={sendMessage} className="w-2/12 h-8 bg-primary rounded-md text-white font-bold focus:outline-none mx-2 my-3">Send</button>
                         </div>
                     </div>
@@ -273,15 +283,24 @@ const Home = ({location}) => {
                             {chat.length ?
                                 chat.map(data => {
                                     return (
-                                        <li className="flex py-4 items-center w-full">
-                                            <div className="items-list">
+                                        <li className={`flex py-4 items-center w-full ${ data.sender === sender ? "justify-end" : "justify-start" }`}>
+                                            <div className={`flex align-middle ${ data.sender === sender ? "flex-row-reverse" : "" }`}>
                                                 <img className="rounded-full object-cover w-12 h-12" src="https://placeimg.com/640/480/any" alt=""/>
-                                                <div className="flex flex-col">
-                                                    <div className="flex-wrap rounded-md py-1 px-2 bg-chat">
+                                                { data.sender === sender ?
+                                                <div className="flex flex-col mr-3 items-end">
+                                                    <div className="flex-wrap rounded-md py-1 px-2 bg-primary">
                                                         <h1 className="text-sm">{data.message}</h1>
-                                                    </div>
+                                                    </div>  
                                                     <p className="text-xs">07.06</p>
                                                 </div>
+                                                :
+                                                <div className="flex flex-col ml-3">
+                                                    <div className="flex-wrap rounded-md py-1 px-2 bg-lightsecondary">
+                                                        <h1 className="text-sm">{data.message}</h1>
+                                                    </div>  
+                                                    <p className="text-xs">07.06</p>
+                                                </div>    
+                                                }
                                             </div>
                                         </li>
                                     )
